@@ -363,6 +363,7 @@ Bun.serve({
             nickname?: string;
             ability_id?: number;
             item_id?: number;
+            is_shiny?: boolean;
             moves?: Array<{ move_slot: number; move_id: number }>;
           }>;
         };
@@ -381,11 +382,12 @@ Bun.serve({
 
             if (member.pokemon_id) {
               const result = db.prepare(`
-                INSERT INTO team_members (team_id, slot, pokemon_id, nickname, ability_id, item_id)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO team_members (team_id, slot, pokemon_id, nickname, ability_id, item_id, is_shiny)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
               `).run(
                 teamId, member.slot, member.pokemon_id,
-                member.nickname ?? null, member.ability_id ?? null, member.item_id ?? null
+                member.nickname ?? null, member.ability_id ?? null, member.item_id ?? null,
+                member.is_shiny ? 1 : 0
               );
               const memberId = result.lastInsertRowid;
 

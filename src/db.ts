@@ -78,9 +78,15 @@ db.run(`
     nickname TEXT,
     ability_id INTEGER REFERENCES abilities(id),
     item_id INTEGER REFERENCES items(id),
+    is_shiny INTEGER NOT NULL DEFAULT 0,
     UNIQUE (team_id, slot)
   )
 `);
+
+const teamMemberColumns = db.prepare("PRAGMA table_info(team_members)").all() as { name: string }[];
+if (!teamMemberColumns.some((c) => c.name === "is_shiny")) {
+  db.run("ALTER TABLE team_members ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0");
+}
 
 db.run(`
   CREATE TABLE IF NOT EXISTS team_member_moves (

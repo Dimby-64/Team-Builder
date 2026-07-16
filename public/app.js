@@ -124,10 +124,59 @@ async function getBaseStats(pokemon) {
 }
 
 // ── Sprite URL ────────────────────────────────────────────────────────────
-function spriteUrl(pokemon) {
+function spriteUrl(pokemon, shiny = false) {
   const id = pokemon.sprite_id;
   const formId = id.includes("-") ? formatSpriteId(id) : id;
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${formId}.png`;
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${formId}.png`;
+}
+
+function itemSpriteUrl(item) {
+  const slug = item.name.toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`;
+}
+
+// ── Description tooltip ──────────────────────────────────────────────────
+let descTooltipEl = null;
+function getDescTooltipEl() {
+  if (!descTooltipEl) {
+    descTooltipEl = document.createElement("div");
+    descTooltipEl.className = "desc-tooltip";
+    document.body.appendChild(descTooltipEl);
+  }
+  return descTooltipEl;
+}
+function showDescTooltip(text, x, y) {
+  if (!text) return;
+  const el = getDescTooltipEl();
+  el.textContent = text;
+  el.style.display = "block";
+  positionDescTooltip(x, y);
+}
+function positionDescTooltip(x, y) {
+  const el = getDescTooltipEl();
+  const pad = 14;
+  const maxLeft = window.innerWidth - el.offsetWidth - pad;
+  const maxTop = window.innerHeight - el.offsetHeight - pad;
+  el.style.left = `${Math.max(pad, Math.min(x + pad, maxLeft))}px`;
+  el.style.top = `${Math.max(pad, Math.min(y + pad, maxTop))}px`;
+}
+function hideDescTooltip() {
+  if (descTooltipEl) descTooltipEl.style.display = "none";
+}
+function attachDescTooltip(el, description) {
+  el.addEventListener("mouseenter", (e) => showDescTooltip(description, e.clientX, e.clientY));
+  el.addEventListener("mousemove", (e) => positionDescTooltip(e.clientX, e.clientY));
+  el.addEventListener("mouseleave", hideDescTooltip);
+}
+
+function makeItemIcon(item, className, withTitle = true) {
+  const img = document.createElement("img");
+  img.className = className;
+  img.src = itemSpriteUrl(item);
+  img.alt = item.name;
+  if (withTitle) img.title = item.description;
+  img.onerror = () => { img.replaceWith(Object.assign(document.createElement("span"), { className: `${className} item-icon-fallback`, textContent: "🎒", title: withTitle ? item.description : "" })); };
+  return img;
 }
 
 function formatSpriteId(id) {
@@ -221,9 +270,9 @@ function renderTeamSlots() {
                        allPokemonById[member.pokemonId];
       if (pokemon) {
         const img = document.createElement("img");
-        img.src = spriteUrl(pokemon);
+        img.src = spriteUrl(pokemon, member.shiny);
         img.alt = pokemon.name;
-        img.onerror = () => { img.src = fallbackSprite(pokemon); };
+        img.onerror = () => { img.src = fallbackSprite(pokemon, member.shiny); };
         card.appendChild(img);
 
         const name = document.createElement("div");
@@ -265,8 +314,8 @@ function renderTeamSlots() {
   }
 }
 
-function fallbackSprite(pokemon) {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dex_number}.png`;
+function fallbackSprite(pokemon, shiny = false) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? "shiny/" : ""}${pokemon.dex_number}.png`;
 }
 
 // ── Render: Browser ───────────────────────────────────────────────────────
@@ -398,7 +447,7 @@ function renderMovesList(container, moves, search, type, category, onSelect) {
     el.appendChild(typeBadgeEl);
     el.appendChild(name);
     el.appendChild(stats);
-    el.title = move.description;
+    attachDescTooltip(el, move.description);
 
     if (onSelect) el.addEventListener("click", () => onSelect(move));
     container.appendChild(el);
@@ -414,6 +463,8 @@ function renderItemsList(container, items, search, category) {
     const el = document.createElement("div");
     el.className = "item-list-item";
 
+    const icon = makeItemIcon(item, "item-icon");
+
     const catBadge = document.createElement("span");
     catBadge.className = "item-category-badge";
     catBadge.textContent = item.category;
@@ -422,9 +473,10 @@ function renderItemsList(container, items, search, category) {
     name.className = "item-name";
     name.textContent = item.name;
 
+    el.appendChild(icon);
     el.appendChild(catBadge);
     el.appendChild(name);
-    el.title = item.description;
+    attachDescTooltip(el, item.description);
     container.appendChild(el);
   }
 }
@@ -442,7 +494,7 @@ function renderAbilitiesList(container, abilities, search, onSelect) {
     name.textContent = ab.name;
 
     el.appendChild(name);
-    el.title = ab.description;
+    attachDescTooltip(el, ab.description);
     if (onSelect) el.addEventListener("click", () => onSelect(ab));
     container.appendChild(el);
   }
@@ -636,9 +688,9 @@ async function renderDetailPanel() {
   const header = document.createElement("div");
   header.className = "detail-header";
   const img = document.createElement("img");
-  img.src = spriteUrl(pokemon);
+  img.src = spriteUrl(pokemon, member.shiny);
   img.alt = pokemon.name;
-  img.onerror = () => { img.src = fallbackSprite(pokemon); };
+  img.onerror = () => { img.src = fallbackSprite(pokemon, member.shiny); };
 
   const info = document.createElement("div");
   info.className = "detail-info";
@@ -646,11 +698,24 @@ async function renderDetailPanel() {
     <h2>${pokemon.name}</h2>
     <div class="detail-types">${typeBadge(pokemon.type1)}${pokemon.type2 ? typeBadge(pokemon.type2) : ""}</div>
     <div class="dex-number">#${String(pokemon.dex_number).padStart(4, "0")} · Gen ${pokemon.generation}${pokemon.is_mega ? " · Mega" : ""}${pokemon.is_regional ? ` · ${pokemon.form}` : ""}</div>
-    <input class="nickname-input" id="nicknameInput" type="text" placeholder="Nickname (optional)" value="${member.nickname || ""}" />
+    <div class="nickname-row">
+      <input class="nickname-input" id="nicknameInput" type="text" placeholder="Nickname (optional)" value="${member.nickname || ""}" />
+      <label class="shiny-toggle">
+        <input type="checkbox" id="shinyToggle" ${member.shiny ? "checked" : ""} />
+        <span class="shiny-toggle-track"><span class="shiny-toggle-thumb"></span></span>
+        <span class="shiny-toggle-label">✨ Shiny</span>
+      </label>
+    </div>
   `;
   header.appendChild(img);
   header.appendChild(info);
   panel.appendChild(header);
+
+  document.getElementById("shinyToggle").addEventListener("change", (e) => {
+    member.shiny = e.target.checked;
+    img.src = spriteUrl(pokemon, member.shiny);
+    renderTeamSlots();
+  });
 
   document.getElementById("nicknameInput").addEventListener("input", (e) => {
     state.team[slot].nickname = e.target.value;
@@ -679,7 +744,7 @@ async function renderDetailPanel() {
       const chip = document.createElement("div");
       chip.className = `ability-chip ${ab.is_hidden ? "hidden-ability" : ""} ${member.abilityId === ab.id ? "selected" : ""}`;
       chip.textContent = ab.name;
-      chip.title = ab.description;
+      attachDescTooltip(chip, ab.description);
       chip.addEventListener("click", () => {
         member.abilityId = ab.id;
         abilityDesc.textContent = ab.description;
@@ -707,14 +772,36 @@ async function renderDetailPanel() {
   const isMegaLocked = pokemon.is_mega && megaStoneMap[pokemon.sprite_id];
   const itemCurrent = document.createElement("div");
   itemCurrent.className = "item-current" + (isMegaLocked ? " item-locked" : "");
-  itemCurrent.innerHTML = `
-    <span style="font-size:18px">${isMegaLocked ? "🔒" : "🎒"}</span>
-    <div style="flex:1">
-      <div class="item-current-name">${currentItem ? currentItem.name : "No item"}</div>
-      <div class="item-current-desc">${currentItem ? currentItem.description : "Click to select a held item"}</div>
-    </div>
-    ${!isMegaLocked && currentItem ? `<span style="color:var(--text-dim);cursor:pointer;font-size:18px" id="clearItem">×</span>` : ""}
-  `;
+
+  const iconEl = currentItem
+    ? makeItemIcon(currentItem, "item-current-icon")
+    : Object.assign(document.createElement("span"), { style: "font-size:18px", textContent: isMegaLocked ? "🔒" : "🎒" });
+  itemCurrent.appendChild(iconEl);
+
+  const nameWrap = document.createElement("div");
+  nameWrap.style.flex = "1";
+  const nameEl = document.createElement("div");
+  nameEl.className = "item-current-name";
+  nameEl.textContent = currentItem ? currentItem.name : "No item";
+  if (!currentItem) {
+    const hintEl = document.createElement("div");
+    hintEl.className = "item-current-desc";
+    hintEl.textContent = "Click to select a held item";
+    nameWrap.appendChild(nameEl);
+    nameWrap.appendChild(hintEl);
+  } else {
+    nameWrap.title = currentItem.description;
+    nameWrap.appendChild(nameEl);
+  }
+  itemCurrent.appendChild(nameWrap);
+
+  if (!isMegaLocked && currentItem) {
+    const clearEl = document.createElement("span");
+    clearEl.id = "clearItem";
+    clearEl.style.cssText = "color:var(--text-dim);cursor:pointer;font-size:18px";
+    clearEl.textContent = "×";
+    itemCurrent.appendChild(clearEl);
+  }
   if (!isMegaLocked) {
     itemCurrent.addEventListener("click", (e) => {
       if (e.target.id === "clearItem") {
@@ -874,6 +961,7 @@ function addPokemonToTeam(pokemon) {
     nickname: "",
     abilityId: null,
     itemId: autoItemId,
+    shiny: false,
     moves: [null, null, null, null],
     nature: "Hardy",
     statPoints: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
@@ -982,24 +1070,21 @@ function renderItemModalList(slot) {
     const el = document.createElement("div");
     el.className = "item-list-item";
     el.style.cursor = "pointer";
+    attachDescTooltip(el, item.description);
+
+    const icon = makeItemIcon(item, "item-icon", false);
 
     const catBadge = document.createElement("span");
     catBadge.className = "item-category-badge";
     catBadge.textContent = item.category;
 
-    const nameEl = document.createElement("div");
-    nameEl.style.flex = "1";
-    const name = document.createElement("div");
+    const name = document.createElement("span");
     name.className = "item-name";
     name.textContent = item.name;
-    const desc = document.createElement("div");
-    desc.style.cssText = "font-size:11px;color:var(--text-muted);margin-top:2px";
-    desc.textContent = item.description;
-    nameEl.appendChild(name);
-    nameEl.appendChild(desc);
 
+    el.appendChild(icon);
     el.appendChild(catBadge);
-    el.appendChild(nameEl);
+    el.appendChild(name);
     el.addEventListener("click", () => {
       if (state.activeSlot !== null) {
         state.team[state.activeSlot].itemId = item.id;
@@ -1026,6 +1111,7 @@ async function saveTeam() {
       nickname: m.nickname || null,
       ability_id: m.abilityId || null,
       item_id: m.itemId || null,
+      is_shiny: !!m.shiny,
       moves: m.moves
         .map((moveId, mi) => moveId ? { move_slot: mi + 1, move_id: moveId } : null)
         .filter(Boolean),
@@ -1122,6 +1208,7 @@ async function loadTeamIntoEditor(teamId) {
       nickname: member.nickname || "",
       abilityId: member.ability_id,
       itemId: member.item_id,
+      shiny: !!member.is_shiny,
       moves: [null, null, null, null],
       nature: member.nature || "Hardy",
       statPoints: member.statPoints || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
