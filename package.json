@@ -1,0 +1,11 @@
+{
+  "name": "teambuilder",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run server.ts",
+    "seed": "bun run src/seed.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

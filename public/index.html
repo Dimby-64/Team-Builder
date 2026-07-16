@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon Champions Team Builder</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>⚔️ Champions Team Builder</h1>
+    <input class="team-name-input" id="teamNameInput" type="text" placeholder="Team name…" value="My Team" />
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="loadTeamBtn">📂 Load</button>
+    <button class="btn btn-primary" id="saveTeamBtn">💾 Save</button>
+    <button class="btn btn-danger" id="clearTeamBtn">🗑 Clear</button>
+  </header>
+
+  <div class="app-body">
+    <!-- Left: Browser -->
+    <aside class="browser-panel">
+      <div class="browser-tabs">
+        <div class="browser-tab active" data-tab="pokemon">Pokémon</div>
+        <div class="browser-tab" data-tab="moves">Moves</div>
+        <div class="browser-tab" data-tab="abilities">Abilities</div>
+        <div class="browser-tab" data-tab="items">Items</div>
+      </div>
+
+      <!-- Pokémon tab -->
+      <div class="browser-filters" id="pokemonFilters">
+        <input class="search-input" id="pokemonSearch" type="text" placeholder="Search Pokémon…" />
+        <div class="filter-row">
+          <select class="filter-select" id="typeFilter">
+            <option value="">All Types</option>
+            <option>Normal</option><option>Fire</option><option>Water</option>
+            <option>Grass</option><option>Electric</option><option>Ice</option>
+            <option>Fighting</option><option>Poison</option><option>Ground</option>
+            <option>Flying</option><option>Psychic</option><option>Bug</option>
+            <option>Rock</option><option>Ghost</option><option>Dragon</option>
+            <option>Dark</option><option>Steel</option><option>Fairy</option>
+          </select>
+          <select class="filter-select" id="genFilter">
+            <option value="">All Gens</option>
+            <option value="1">Gen 1</option><option value="2">Gen 2</option>
+            <option value="3">Gen 3</option><option value="4">Gen 4</option>
+            <option value="5">Gen 5</option><option value="6">Gen 6</option>
+            <option value="7">Gen 7</option><option value="8">Gen 8</option>
+            <option value="9">Gen 9</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select class="filter-select" id="formFilter">
+            <option value="">All Forms</option>
+            <option value="false">Base Only</option>
+            <option value="mega">Mega Only</option>
+            <option value="regional">Regional Only</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Moves tab filters -->
+      <div class="browser-filters" id="movesFilters" style="display:none">
+        <input class="search-input" id="moveSearch" type="text" placeholder="Search moves…" />
+        <div class="filter-row">
+          <select class="filter-select" id="moveTypeFilter">
+            <option value="">All Types</option>
+            <option>Normal</option><option>Fire</option><option>Water</option>
+            <option>Grass</option><option>Electric</option><option>Ice</option>
+            <option>Fighting</option><option>Poison</option><option>Ground</option>
+            <option>Flying</option><option>Psychic</option><option>Bug</option>
+            <option>Rock</option><option>Ghost</option><option>Dragon</option>
+            <option>Dark</option><option>Steel</option><option>Fairy</option>
+          </select>
+          <select class="filter-select" id="moveCategoryFilter">
+            <option value="">All Categories</option>
+            <option value="physical">Physical</option>
+            <option value="special">Special</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Items / Abilities filters -->
+      <div class="browser-filters" id="itemsFilters" style="display:none">
+        <input class="search-input" id="itemSearch" type="text" placeholder="Search items…" />
+        <select class="filter-select" id="itemCategoryFilter">
+          <option value="">All Categories</option>
+          <option value="Mega Stone">Mega Stones</option>
+          <option value="Choice">Choice Items</option>
+          <option value="Power">Power Boost</option>
+          <option value="Defense">Defense</option>
+          <option value="Recovery">Recovery</option>
+          <option value="Survival">Survival</option>
+          <option value="Weather">Weather</option>
+          <option value="Type Boost">Type Boosts</option>
+          <option value="Accuracy">Accuracy</option>
+          <option value="Effect">Effects</option>
+          <option value="Speed">Speed</option>
+          <option value="Status Cure">Status Cure</option>
+          <option value="Support">Support</option>
+          <option value="Utility">Utility</option>
+          <option value="Species">Species-Specific</option>
+          <option value="Terrain">Terrain</option>
+          <option value="Evasion">Evasion</option>
+        </select>
+      </div>
+      <div class="browser-filters" id="abilitiesFilters" style="display:none">
+        <input class="search-input" id="abilitySearch" type="text" placeholder="Search abilities…" />
+      </div>
+
+      <div class="browser-list" id="browserList">
+        <div class="loading">Loading…</div>
+      </div>
+    </aside>
+
+    <!-- Right: Team -->
+    <main class="team-panel">
+      <!-- Team slots -->
+      <div class="team-slots" id="teamSlots"></div>
+
+      <!-- Detail for active slot -->
+      <div class="detail-panel" id="detailPanel">
+        <div class="detail-empty">
+          <div class="big-icon">⚔️</div>
+          <p>Select a team slot to configure, or click a Pokémon to add it.</p>
+          <p style="font-size:12px;margin-top:4px;">Build your team of 6 for Pokémon Champions!</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Load Teams Modal -->
+  <div class="modal-overlay" id="loadModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📂 Saved Teams</h3>
+        <span class="modal-close" id="closeLoadModal">✕</span>
+      </div>
+      <div class="modal-body" id="teamsListContainer">
+        <div class="empty-state">No saved teams yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Move Picker Modal -->
+  <div class="modal-overlay" id="moveModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="moveModalTitle">Select Move</h3>
+        <span class="modal-close" id="closeMoveModal">✕</span>
+      </div>
+      <div class="modal-search">
+        <input class="search-input" id="moveModalSearch" type="text" placeholder="Search moves…" />
+        <select class="filter-select" id="moveModalType" style="width:120px">
+          <option value="">All Types</option>
+          <option>Normal</option><option>Fire</option><option>Water</option>
+          <option>Grass</option><option>Electric</option><option>Ice</option>
+          <option>Fighting</option><option>Poison</option><option>Ground</option>
+          <option>Flying</option><option>Psychic</option><option>Bug</option>
+          <option>Rock</option><option>Ghost</option><option>Dragon</option>
+          <option>Dark</option><option>Steel</option><option>Fairy</option>
+        </select>
+      </div>
+      <label class="modal-toggle" id="moveModalToggleRow">
+        <input type="checkbox" id="moveModalShowAll" />
+        Show all moves
+      </label>
+      <div class="modal-body" id="moveModalList"></div>
+    </div>
+  </div>
+
+  <!-- Item Picker Modal -->
+  <div class="modal-overlay" id="itemModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Select Item</h3>
+        <span class="modal-close" id="closeItemModal">✕</span>
+      </div>
+      <div class="modal-search">
+        <input class="search-input" id="itemModalSearch" type="text" placeholder="Search items…" />
+        <select class="filter-select" id="itemModalCategory" style="width:140px">
+          <option value="">All Categories</option>
+          <option value="Mega Stone">Mega Stones</option>
+          <option value="Choice">Choice</option>
+          <option value="Power">Power Boost</option>
+          <option value="Defense">Defense</option>
+          <option value="Recovery">Recovery</option>
+          <option value="Weather">Weather</option>
+          <option value="Type Boost">Type Boosts</option>
+        </select>
+      </div>
+      <div class="modal-body" id="itemModalList"></div>
+    </div>
+  </div>
+
+  <!-- Learners Modal (move / ability → who can use it) -->
+  <div class="modal-overlay" id="learnersModal" style="display:none">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 id="learnersModalTitle"></h3>
+          <div class="learners-modal-count" id="learnersModalCount"></div>
+        </div>
+        <span class="modal-close" id="closeLearnersModal">✕</span>
+      </div>
+      <div class="learners-modal-desc" id="learnersModalDesc"></div>
+      <div class="modal-body" id="learnersModalList"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
