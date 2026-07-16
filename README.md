@@ -22,3 +22,12 @@
 # setup
 bun install
 bun dev
+
+# dev workflow
+1. make changes
+2. review changes through the git difference view in vscode
+3. make sure theres no secrets/database files
+4. stage changes `git add .`
+5. commit changes `git commit -m "some comment"`
+6. pull latest changes from origin `git pull`
+7. push changes to origin `git push`
