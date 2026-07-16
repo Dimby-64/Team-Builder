@@ -19,3 +19,6 @@
     - Multiple pokemon can go in multiple categories, though there needs to be a distinction as to why they were placed in a given category (arcanine has intimidate for disruption but also solid attacking stats)
     - This could be a selectable filter or a clickable icon that then applys the filter
     - it also could look like the tags that already exist in the app (as of july 6th, 2026) for regional forms and mega evolutions
+# setup
+bun install
+bun dev
