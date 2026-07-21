@@ -9,9 +9,6 @@
     - The ui is going to be the primary way of  differentiating the app from its competition, particularly through the creation of a unique visual identity
     - New font
     - Change the emojis
-    - Change the regional tags
-- Add stat spread distribution
-- Consolidate sprite styles
 - Look into how much getting ads would be
 - Add fun gimmick teambuilding styles (like fan formats in showdown)
 - Create a "hero shooter" categorization for pokemon selection
