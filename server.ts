@@ -1,6 +1,7 @@
 import { db } from "./src/db";
 import { join } from "path";
 import { readFileSync, existsSync } from "fs";
+import { normalizeMoveName, getPokemonSlug } from "./src/pokeapi";
 
 const MIME: Record<string, string> = {
   ".html": "text/html",
@@ -32,69 +33,20 @@ function notFound(msg = "Not found"): Response {
   return json({ error: msg }, 404);
 }
 
-function normalizeMoveName(name: string): string {
-  return name.toLowerCase().replace(/[\s-]/g, "");
-}
-
-// sprite_id → exact PokeAPI pokemon slug for forms that don't follow standard naming
-const pokeApiSlugOverrides: Record<string, string> = {
-  "128-paldea-combat": "tauros-paldea-combat-breed",
-  "128-paldea-blaze":  "tauros-paldea-blaze-breed",
-  "128-paldea-aqua":   "tauros-paldea-aqua-breed",
-  "479-heat":          "rotom-heat",
-  "479-wash":          "rotom-wash",
-  "479-frost":         "rotom-frost",
-  "479-fan":           "rotom-fan",
-  "479-mow":           "rotom-mow",
-  "670-eternal":       "floette-eternal",
-  "745-midday":        "lycanroc",
-  "745-midnight":      "lycanroc-midnight",
-  "745-dusk":          "lycanroc-dusk",
-};
-
-type PokemonRow = { name: string; is_mega: number; is_regional: number; sprite_id: string };
-
-function pokemonToPokeApiSlug(pokemon: PokemonRow): string {
-  if (pokeApiSlugOverrides[pokemon.sprite_id]) return pokeApiSlugOverrides[pokemon.sprite_id];
-  if (pokemon.is_mega) {
-    const withoutMega = pokemon.name.replace(/^Mega /, "").toLowerCase().split(" ");
-    return withoutMega.length > 1
-      ? `${withoutMega[0]}-mega-${withoutMega[1]}`
-      : `${withoutMega[0]}-mega`;
+function tagsByPokemonId(): Map<number, string[]> {
+  const rows = db.prepare(`
+    SELECT pt.pokemon_id, t.name
+    FROM pokemon_tags pt
+    JOIN tags t ON t.id = pt.tag_id
+    ORDER BY t.name
+  `).all() as { pokemon_id: number; name: string }[];
+  const map = new Map<number, string[]>();
+  for (const row of rows) {
+    const list = map.get(row.pokemon_id) ?? [];
+    list.push(row.name);
+    map.set(row.pokemon_id, list);
   }
-  if (pokemon.is_regional) {
-    const formPrefixes: Record<string, string> = {
-      "Alolan ": "alola", "Galarian ": "galar", "Hisuian ": "hisui", "Paldean ": "paldea",
-    };
-    for (const [prefix, regionSlug] of Object.entries(formPrefixes)) {
-      if (pokemon.name.startsWith(prefix)) {
-        return `${pokemon.name.slice(prefix.length).toLowerCase()}-${regionSlug}`;
-      }
-    }
-  }
-  return pokemon.name.toLowerCase();
-}
-
-function getPokeApiSlug(pokemon: { dex_number: number; name: string; is_mega: number; is_regional: number; sprite_id: string }): string {
-  if (pokeApiSlugOverrides[pokemon.sprite_id]) return pokeApiSlugOverrides[pokemon.sprite_id];
-  if (pokemon.is_mega) {
-    return String(pokemon.dex_number);
-  }
-  if (pokemon.is_regional) {
-    const formPrefixes: Record<string, string> = {
-      "Alolan ": "alola",
-      "Galarian ": "galar",
-      "Hisuian ": "hisui",
-      "Paldean ": "paldea",
-    };
-    for (const [prefix, regionSlug] of Object.entries(formPrefixes)) {
-      if (pokemon.name.startsWith(prefix)) {
-        const baseName = pokemon.name.slice(prefix.length).toLowerCase();
-        return `${baseName}-${regionSlug}`;
-      }
-    }
-  }
-  return String(pokemon.dex_number);
+  return map;
 }
 
 Bun.serve({
@@ -137,8 +89,10 @@ Bun.serve({
 
       sql += " ORDER BY dex_number, is_mega, is_regional";
 
-      const rows = db.prepare(sql).all(...params);
-      return json(rows);
+      const rows = db.prepare(sql).all(...params) as { id: number }[];
+      const tagMap = tagsByPokemonId();
+      const withTags = rows.map(r => ({ ...r, tags: tagMap.get(r.id) ?? [] }));
+      return json(withTags);
     }
 
     const learnableMatch = pathname.match(/^\/api\/pokemon\/(\d+)\/learnable-moves$/);
@@ -160,7 +114,7 @@ Bun.serve({
         return json(moves);
       }
 
-      const slug = getPokeApiSlug(pokemon);
+      const slug = getPokemonSlug(pokemon);
       try {
         const pokeRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${slug}`);
         if (!pokeRes.ok) throw new Error(`PokeAPI ${pokeRes.status}`);
@@ -215,7 +169,7 @@ Bun.serve({
         const allPokemon = db.prepare("SELECT * FROM pokemon").all() as Array<{ id: number; dex_number: number; name: string; is_mega: number; is_regional: number; sprite_id: string }>;
         const matchedIds = allPokemon
           .filter(p => {
-            const slug = pokemonToPokeApiSlug(p);
+            const slug = getPokemonSlug(p);
             if (learnableSlugs.has(slug)) return true;
             // Base-form pokemon may appear in PokeAPI as form-specific slugs
             // (e.g. "lycanroc" in our DB vs "lycanroc-midday"/"lycanroc-dusk" in PokeAPI).
@@ -267,7 +221,13 @@ Bun.serve({
         WHERE pa.pokemon_id = ?
         ORDER BY pa.is_hidden
       `).all(id);
-      return json({ ...p as object, abilities });
+      const tags = db.prepare(`
+        SELECT t.* FROM tags t
+        JOIN pokemon_tags pt ON pt.tag_id = t.id
+        WHERE pt.pokemon_id = ?
+        ORDER BY t.name
+      `).all(id);
+      return json({ ...p as object, abilities, tags });
     }
 
     if (pathname === "/api/moves" && method === "GET") {
@@ -303,6 +263,10 @@ Bun.serve({
       if (q) { sql += " AND name LIKE ?"; params.push(`%${q}%`); }
       sql += " ORDER BY name";
       return json(db.prepare(sql).all(...params));
+    }
+
+    if (pathname === "/api/tags" && method === "GET") {
+      return json(db.prepare("SELECT * FROM tags ORDER BY name").all());
     }
 
     // Teams

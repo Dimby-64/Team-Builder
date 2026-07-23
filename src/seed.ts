@@ -4,6 +4,7 @@ import { items } from "./data/items";
 import { moves } from "./data/moves";
 import { pokemon } from "./data/pokemon";
 import { pokemonAbilities } from "./data/pokemon-abilities";
+import { tags } from "./data/tags";
 
 console.log("Seeding database...");
 
@@ -12,10 +13,13 @@ db.run("DELETE FROM team_member_moves");
 db.run("DELETE FROM team_members");
 db.run("DELETE FROM teams");
 db.run("DELETE FROM pokemon_abilities");
+db.run("DELETE FROM pokemon_tags");
+db.run("DELETE FROM pokemon_stats");
 db.run("DELETE FROM pokemon");
 db.run("DELETE FROM moves");
 db.run("DELETE FROM items");
 db.run("DELETE FROM abilities");
+db.run("DELETE FROM tags");
 
 // Seed abilities
 const insertAbility = db.prepare(
@@ -27,6 +31,15 @@ for (const ability of abilities) {
   abilityMap.set(ability.name, result.lastInsertRowid as number);
 }
 console.log(`Inserted ${abilities.length} abilities`);
+
+// Seed tags
+const insertTag = db.prepare(
+  "INSERT INTO tags (name, description) VALUES (?, ?)"
+);
+for (const tag of tags) {
+  insertTag.run(tag.name, tag.description);
+}
+console.log(`Inserted ${tags.length} tags`);
 
 // Seed items
 const insertItem = db.prepare(

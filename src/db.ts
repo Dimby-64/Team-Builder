@@ -119,4 +119,32 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS pokemon_stats (
+    pokemon_id INTEGER PRIMARY KEY REFERENCES pokemon(id) ON DELETE CASCADE,
+    hp INTEGER NOT NULL,
+    attack INTEGER NOT NULL,
+    defense INTEGER NOT NULL,
+    sp_atk INTEGER NOT NULL,
+    sp_def INTEGER NOT NULL,
+    speed INTEGER NOT NULL
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS pokemon_tags (
+    pokemon_id INTEGER NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (pokemon_id, tag_id)
+  )
+`);
+
 export { db };

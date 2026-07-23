@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "bun run server.ts",
-    "seed": "bun run src/seed.ts"
+    "seed": "bun run src/seed.ts",
+    "tags": "bun run src/compute-tags.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

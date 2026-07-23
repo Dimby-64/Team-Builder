@@ -15,6 +15,7 @@ const state = {
   pokemonType: "",
   pokemonGen: "",
   pokemonForm: "",
+  pokemonTag: "",
   moveSearch: "",
   moveType: "",
   moveCategory: "",
@@ -341,7 +342,7 @@ function renderBrowser() {
 
 function renderPokemonGrid(container) {
   let filtered = state.allPokemon;
-  const { pokemonSearch, pokemonType, pokemonGen, pokemonForm } = state;
+  const { pokemonSearch, pokemonType, pokemonGen, pokemonForm, pokemonTag } = state;
 
   if (pokemonSearch) {
     const q = pokemonSearch.toLowerCase();
@@ -359,6 +360,9 @@ function renderPokemonGrid(container) {
     filtered = filtered.filter(p => p.is_mega);
   } else if (pokemonForm === "regional") {
     filtered = filtered.filter(p => p.is_regional);
+  }
+  if (pokemonTag) {
+    filtered = filtered.filter(p => (p.tags || []).includes(pokemonTag));
   }
 
   if (filtered.length === 0) {
@@ -403,6 +407,18 @@ function renderPokemonGrid(container) {
       badge.className = "badge-regional";
       badge.textContent = regionLabel(p.form);
       card.appendChild(badge);
+    }
+
+    if (p.tags && p.tags.length > 0) {
+      const tagRow = document.createElement("div");
+      tagRow.className = "tag-badges";
+      for (const tagName of p.tags) {
+        const tagBadge = document.createElement("span");
+        tagBadge.className = "badge-tag";
+        tagBadge.textContent = tagName;
+        tagRow.appendChild(tagBadge);
+      }
+      card.appendChild(tagRow);
     }
 
     card.addEventListener("click", () => addPokemonToTeam(p));
@@ -681,6 +697,7 @@ async function renderDetailPanel() {
   // Fetch abilities for this pokemon
   const pokemonData = await api(`/api/pokemon/${pokemon.id}`);
   const pokemonAbilities = pokemonData.abilities || [];
+  const pokemonTags = pokemonData.tags || [];
 
   panel.innerHTML = "";
 
@@ -698,6 +715,7 @@ async function renderDetailPanel() {
     <h2>${pokemon.name}</h2>
     <div class="detail-types">${typeBadge(pokemon.type1)}${pokemon.type2 ? typeBadge(pokemon.type2) : ""}</div>
     <div class="dex-number">#${String(pokemon.dex_number).padStart(4, "0")} · Gen ${pokemon.generation}${pokemon.is_mega ? " · Mega" : ""}${pokemon.is_regional ? ` · ${pokemon.form}` : ""}</div>
+    ${pokemonTags.length > 0 ? `<div class="tag-badges">${pokemonTags.map(t => `<span class="badge-tag">${t.name}</span>`).join("")}</div>` : ""}
     <div class="nickname-row">
       <input class="nickname-input" id="nicknameInput" type="text" placeholder="Nickname (optional)" value="${member.nickname || ""}" />
       <label class="shiny-toggle">
@@ -1293,6 +1311,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const mega = e.target.value;
     state.allPokemon = await api(`/api/pokemon${mega ? `?mega=${mega}` : ""}`);
     for (const p of state.allPokemon) allPokemonById[p.id] = p;
+    renderBrowser();
+  });
+  document.getElementById("tagFilter").addEventListener("change", (e) => {
+    state.pokemonTag = e.target.value;
     renderBrowser();
   });
 
