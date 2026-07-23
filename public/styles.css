@@ -725,10 +725,18 @@ header .btn-danger:hover { background: var(--danger); color: #fff; }
   font-size: 13px;
 }
 
-.badge-mega { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
-.badge-regional { background: linear-gradient(135deg, #6d28d9, #3b82f6); color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
 .tag-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 3px; }
-.badge-tag { background: linear-gradient(135deg, #0d9488, #22c55e); color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+.badge-tag { color: #0b0b0b; font-size: 9px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+.badge-tag-bard { background: #3987e5; }
+.badge-tag-ritualist { background: #199e70; }
+.badge-tag-paladin { background: #c98500; }
+.badge-tag-barbarian { background: #008300; }
+.badge-tag-fighter { background: #9085e9; }
+.badge-tag-rogue { background: #e66767; }
+.badge-tag-wizard { background: #d55181; }
+.badge-tag-druid { background: #d95926; }
+.badge-tag-warlock { background: #1cab9c; }
+.badge-tag-wildcard { background: #e2610f; }
 
 /* ── Stats Section ─────────────────────────────────────────────────────────── */
 .stats-section {

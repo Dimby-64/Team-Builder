@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { normalizeMoveName, getPokemonSlug } from "./pokeapi";
+import { getShowdownId, fetchCommonMovesByShowdownId } from "./smogon";
 
 type PokemonRow = {
   id: number;
@@ -16,7 +17,11 @@ type PokemonRow = {
 
 async function ensureStatsAndMoves(pokemon: PokemonRow, allMoves: { id: number; name: string }[]) {
   const hasStats = db.prepare("SELECT 1 FROM pokemon_stats WHERE pokemon_id = ?").get(pokemon.id);
-  const hasMovesCache = db.prepare("SELECT 1 FROM pokemon_moves_cached WHERE pokemon_id = ?").get(pokemon.id);
+  const cachedMoveCount = (db.prepare("SELECT COUNT(*) c FROM pokemon_learnable_moves WHERE pokemon_id = ?").get(pokemon.id) as { c: number }).c;
+  const cacheMarked = db.prepare("SELECT 1 FROM pokemon_moves_cached WHERE pokemon_id = ?").get(pokemon.id);
+  // A "cached" marker with zero matched moves is stale (e.g. left over from a slug
+  // that used to resolve incorrectly) — treat it as uncached so it gets retried.
+  const hasMovesCache = !!cacheMarked && cachedMoveCount > 0;
   if (hasStats && hasMovesCache) return;
 
   const slug = getPokemonSlug(pokemon);
@@ -60,6 +65,39 @@ async function ensureStatsAndMoves(pokemon: PokemonRow, allMoves: { id: number; 
   }
 }
 
+// ── Step 1.5: mega movepools always mirror their base form ──────────────────
+//
+// Mega Evolving doesn't change what moves a species can learn — that's tied to
+// the base species, not the form. PokeAPI's per-form "moves" data for (often
+// fan-made) mega entries is frequently incomplete or empty even when the form's
+// stats are fine (e.g. mega-malamar returns zero moves), so rather than trust
+// each mega's own moves list, every mega's movepool is overwritten with a copy
+// of its base form's — the base form is always the canonical, complete source.
+
+function syncMegaMovepools(pokemonList: PokemonRow[]) {
+  const deleteExisting = db.prepare("DELETE FROM pokemon_learnable_moves WHERE pokemon_id = ?");
+  const insert = db.prepare("INSERT OR IGNORE INTO pokemon_learnable_moves (pokemon_id, move_id) VALUES (?, ?)");
+  const markCached = db.prepare("INSERT OR REPLACE INTO pokemon_moves_cached (pokemon_id) VALUES (?)");
+  const getBaseMoves = db.prepare("SELECT move_id FROM pokemon_learnable_moves WHERE pokemon_id = ?");
+
+  let synced = 0;
+  for (const mega of pokemonList) {
+    if (!mega.is_mega) continue;
+    const base = db.prepare("SELECT id FROM pokemon WHERE dex_number = ? AND is_mega = 0 AND is_regional = 0")
+      .get(mega.dex_number) as { id: number } | undefined;
+    if (!base) {
+      console.warn(`  no base form found for ${mega.name} (dex ${mega.dex_number}) — leaving its own movepool`);
+      continue;
+    }
+    const baseMoves = getBaseMoves.all(base.id) as { move_id: number }[];
+    deleteExisting.run(mega.id);
+    for (const { move_id } of baseMoves) insert.run(mega.id, move_id);
+    markCached.run(mega.id);
+    synced++;
+  }
+  console.log(`Synced movepools for ${synced} mega Pokémon to their base form.`);
+}
+
 // ── Step 2: tagging rules ────────────────────────────────────────────────────
 
 const BARD_MOVES = ["Tailwind", "Icy Wind", "Electroweb", "Scary Face", "Bleakwind Storm", "Sticky Web", "Cotton Spore", "Bulldoze", "Mud Shot"];
@@ -73,8 +111,6 @@ const WIZARD_MOVES = ["Blizzard", "Discharge", "Heat Wave", "Muddy Water", "Eart
 const DRUID_ABILITIES = ["Drought", "Drizzle", "Sand Stream", "Sand Spit", "Snow Warning", "Electric Surge", "Grassy Surge", "Psychic Surge", "Misty Surge"];
 const DRUID_MOVES = ["Stealth Rock", "Spikes", "Toxic Spikes", "Sticky Web", "Rapid Spin", "Defog", "Court Change", "Tidy Up"];
 const WARLOCK_MOVES = ["Will-O-Wisp", "Toxic", "Spore", "Thunder Wave", "Nuzzle", "Glare", "Hypnosis", "Sleep Powder", "Yawn"];
-const WILDCARD_ABILITIES = ["Imposter", "Forecast", "Flower Gift", "Zen Mode", "Schooling", "Battle Bond", "Illusion", "Trace", "Zero to Hero", "Stance Change", "Hunger Switch", "Protean"];
-const WILDCARD_MOVES = ["Transform", "Trick", "Switcheroo", "Metronome"];
 
 function any(set: Set<string>, list: string[]): boolean {
   return list.some(m => set.has(m));
@@ -189,15 +225,20 @@ function computeTags(
     });
   }
 
-  const isGhost = pokemon.type1 === "Ghost" || pokemon.type2 === "Ghost";
-  const wildcardAbilityMatches = count(abilityNames, WILDCARD_ABILITIES);
-  const wildcardMoveMatches = count(moveNames, WILDCARD_MOVES);
-  const curseGhost = moveNames.has("Curse") && isGhost;
-  if (wildcardAbilityMatches >= 1 || wildcardMoveMatches >= 1 || curseGhost) {
-    candidates.push({
-      name: "Wildcard",
-      score: wildcardAbilityMatches * ABILITY_WEIGHT + wildcardMoveMatches * MOVE_WEIGHT + (curseGhost ? ABILITY_WEIGHT : 0),
-    });
+  // Wildcard is reserved for Ditto — no other Pokémon's gimmick is singular
+  // enough to earn it.
+  if (pokemon.name === "Ditto") {
+    candidates.push({ name: "Wildcard", score: ABILITY_WEIGHT });
+  }
+
+  // Fallback for Pokémon PokeAPI has no record of at all (e.g. a fan-made mega
+  // that was never populated upstream) — stats and movepool are both permanently
+  // unobtainable, so every move-gated and stat-gated tag above is structurally
+  // unreachable. Fighter is the only tag gated on ability alone plus a stat
+  // threshold we simply can't verify; fall back to the ability match by itself
+  // rather than leaving the Pokémon with no tag at all.
+  if (candidates.length === 0 && stats === undefined && fighterAbilityMatches >= 1) {
+    candidates.push({ name: "Fighter", score: fighterAbilityMatches * ABILITY_WEIGHT });
   }
 
   candidates.sort((a, b) => b.score - a.score);
@@ -217,6 +258,8 @@ async function main() {
     await ensureStatsAndMoves(p, allMoves);
     if (!alreadyCached) await new Promise(r => setTimeout(r, 150));
   }
+
+  syncMegaMovepools(pokemonList);
 
   console.log("Computing tags...");
   const tagRows = db.prepare("SELECT id, name FROM tags").all() as { id: number; name: string }[];
@@ -249,15 +292,34 @@ async function main() {
   const statsRows = db.prepare("SELECT * FROM pokemon_stats").all() as Array<Stats & { pokemon_id: number }>;
   const statsByPokemon = new Map(statsRows.map(s => [s.pokemon_id, s]));
 
+  let commonMovesByShowdownId: Map<string, Set<string>>;
+  try {
+    commonMovesByShowdownId = await fetchCommonMovesByShowdownId(allMoves);
+  } catch (e) {
+    console.error("Smogon usage stats fetch failed, falling back to full movepools only:", (e as Error).message);
+    commonMovesByShowdownId = new Map();
+  }
+
   db.run("DELETE FROM pokemon_tags");
   const insertTag = db.prepare("INSERT OR IGNORE INTO pokemon_tags (pokemon_id, tag_id) VALUES (?, ?)");
 
   const counts = new Map<string, number>();
   for (const p of pokemonList) {
-    const moveNames = movesByPokemon.get(p.id) ?? new Set<string>();
+    const allMoveNames = movesByPokemon.get(p.id) ?? new Set<string>();
     const abilityNames = abilitiesByPokemon.get(p.id) ?? new Set<string>();
     const stats = statsByPokemon.get(p.id);
-    const tags = computeTags(p, moveNames, abilityNames, stats);
+
+    // Prefer tags earned from moves the Pokémon is actually commonly run with
+    // (per Smogon usage stats); only fall back to its full theoretical
+    // movepool if that doesn't establish any tag at all — e.g. it has no
+    // usage data (never battled with, or a fan-made mega Smogon has no
+    // record of), or its common moves genuinely don't fit any role.
+    const commonMoveNames = commonMovesByShowdownId.get(getShowdownId(p)) ?? new Set<string>();
+    let tags = computeTags(p, commonMoveNames, abilityNames, stats);
+    if (tags.length === 0) {
+      tags = computeTags(p, allMoveNames, abilityNames, stats);
+    }
+
     for (const tagName of tags) {
       const tagId = tagIdByName.get(tagName);
       if (!tagId) continue;

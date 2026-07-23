@@ -57,16 +57,6 @@ const megaStoneMap = {
   "952-mega": "Scovillainite","970-mega": "Glimmoranite",
 };
 
-function regionLabel(form) {
-  if (!form) return "FORM";
-  const f = form.toLowerCase();
-  if (f.includes("paldea")) return "PALDEA";
-  if (f.includes("alola")) return "ALOLA";
-  if (f.includes("galar")) return "GALAR";
-  if (f.includes("hisui")) return "HISUI";
-  return form.toUpperCase();
-}
-
 // ── Natures ───────────────────────────────────────────────────────────────
 const NATURES = {
   "Hardy":   null,          "Docile":   null,          "Serious":  null,
@@ -250,6 +240,11 @@ function typeBadge(type) {
   return `<span class="type-badge type-${type}">${type}</span>`;
 }
 
+// ── Role tag badge class (each tag gets its own color) ──────────────────────
+function tagBadgeClass(tagName) {
+  return `badge-tag-${tagName.toLowerCase()}`;
+}
+
 // ── Render: Team Slots ────────────────────────────────────────────────────
 function renderTeamSlots() {
   const container = document.getElementById("teamSlots");
@@ -397,24 +392,12 @@ function renderPokemonGrid(container) {
     card.appendChild(name);
     card.appendChild(types);
 
-    if (p.is_mega) {
-      const badge = document.createElement("span");
-      badge.className = "badge-mega";
-      badge.textContent = "MEGA";
-      card.appendChild(badge);
-    } else if (p.is_regional) {
-      const badge = document.createElement("span");
-      badge.className = "badge-regional";
-      badge.textContent = regionLabel(p.form);
-      card.appendChild(badge);
-    }
-
     if (p.tags && p.tags.length > 0) {
       const tagRow = document.createElement("div");
       tagRow.className = "tag-badges";
       for (const tagName of p.tags) {
         const tagBadge = document.createElement("span");
-        tagBadge.className = "badge-tag";
+        tagBadge.className = `badge-tag ${tagBadgeClass(tagName)}`;
         tagBadge.textContent = tagName;
         tagRow.appendChild(tagBadge);
       }
@@ -715,7 +698,7 @@ async function renderDetailPanel() {
     <h2>${pokemon.name}</h2>
     <div class="detail-types">${typeBadge(pokemon.type1)}${pokemon.type2 ? typeBadge(pokemon.type2) : ""}</div>
     <div class="dex-number">#${String(pokemon.dex_number).padStart(4, "0")} · Gen ${pokemon.generation}${pokemon.is_mega ? " · Mega" : ""}${pokemon.is_regional ? ` · ${pokemon.form}` : ""}</div>
-    ${pokemonTags.length > 0 ? `<div class="tag-badges">${pokemonTags.map(t => `<span class="badge-tag">${t.name}</span>`).join("")}</div>` : ""}
+    ${pokemonTags.length > 0 ? `<div class="tag-badges">${pokemonTags.map(t => `<span class="badge-tag ${tagBadgeClass(t.name)}">${t.name}</span>`).join("")}</div>` : ""}
     <div class="nickname-row">
       <input class="nickname-input" id="nicknameInput" type="text" placeholder="Nickname (optional)" value="${member.nickname || ""}" />
       <label class="shiny-toggle">

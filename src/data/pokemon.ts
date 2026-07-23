@@ -266,7 +266,6 @@ export const pokemon: PokemonEntry[] = [
   // === GENERATION 7 ===
   { dex_number: 724, name: "Decidueye", form: null, type1: "Grass", type2: "Ghost", sprite_id: "724", is_mega: false, is_regional: false, generation: 7 },
   { dex_number: 724, name: "Hisuian Decidueye", form: "Hisuian", type1: "Grass", type2: "Fighting", sprite_id: "724-hisui", is_mega: false, is_regional: true, generation: 7 },
-  { dex_number: 724, name: "Mega Decidueye", form: "Mega", type1: "Grass", type2: "Ghost", sprite_id: "724-mega", is_mega: true, is_regional: false, generation: 7 },
   { dex_number: 727, name: "Incineroar", form: null, type1: "Fire", type2: "Dark", sprite_id: "727", is_mega: false, is_regional: false, generation: 7 },
   { dex_number: 730, name: "Primarina", form: null, type1: "Water", type2: "Fairy", sprite_id: "730", is_mega: false, is_regional: false, generation: 7 },
   { dex_number: 733, name: "Toucannon", form: null, type1: "Normal", type2: "Flying", sprite_id: "733", is_mega: false, is_regional: false, generation: 7 },

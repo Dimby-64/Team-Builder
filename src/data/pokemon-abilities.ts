@@ -258,7 +258,6 @@ export const pokemonAbilities: AbilityMapping[] = [
   // Gen 7
   { pokemon: "Decidueye", abilities: [["Overgrow", false], ["Long Reach", true]] },
   { pokemon: "Hisuian Decidueye", abilities: [["Overgrow", false], ["Scrappy", true]] },
-  { pokemon: "Mega Decidueye", abilities: [["Sharpness", false]] },
   { pokemon: "Incineroar", abilities: [["Blaze", false], ["Intimidate", true]] },
   { pokemon: "Primarina", abilities: [["Torrent", false], ["Liquid Voice", true]] },
   { pokemon: "Toucannon", abilities: [["Keen Eye", false], ["Skill Link", false], ["Sheer Force", true]] },
